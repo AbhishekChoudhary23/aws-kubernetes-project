@@ -1,0 +1,63 @@
+version: 0.2
+
+env:
+  variables:
+    GCR_HOST: "gcr.io"
+    GCP_PROJECT_ID: "my-gcp-project"
+    BACKEND_IMAGE_NAME: "observability-backend"
+    FRONTEND_IMAGE_NAME: "observability-frontend"
+
+phases:
+  install:
+    runtime-versions:
+      nodejs: 18
+    commands:
+      - echo "=== Install Phase ==="
+      - echo "Authenticating with Google Container Registry (GCR)..."
+      - aws secretsmanager get-secret-value --secret-id $GCR_SERVICE_ACCOUNT_SECRET --query SecretString --output text > /tmp/gcr-key.json
+      - cat /tmp/gcr-key.json | docker login -u _json_key --password-stdin https://$GCR_HOST
+      - rm -f /tmp/gcr-key.json
+
+  pre_build:
+    commands:
+      - echo "=== Pre-Build Phase ==="
+      - BACKEND_REPO_URI="$GCR_HOST/$GCP_PROJECT_ID/$BACKEND_IMAGE_NAME"
+      - FRONTEND_REPO_URI="$GCR_HOST/$GCP_PROJECT_ID/$FRONTEND_IMAGE_NAME"
+      - BUILD_TAG="${CODEBUILD_RESOLVED_SOURCE_VERSION:0:7}-${CODEBUILD_BUILD_NUMBER:-1}"
+      - echo "Building image tag: $BUILD_TAG"
+
+  build:
+    commands:
+      - echo "=== Build Phase ==="
+      - echo "Building Backend Docker image..."
+      - docker build -t $BACKEND_REPO_URI:$BUILD_TAG ./application/backend
+      - docker tag $BACKEND_REPO_URI:$BUILD_TAG $BACKEND_REPO_URI:latest
+
+      - echo "Building Frontend Docker image..."
+      - docker build -t $FRONTEND_REPO_URI:$BUILD_TAG ./application/frontend
+      - docker tag $FRONTEND_REPO_URI:$BUILD_TAG $FRONTEND_REPO_URI:latest
+
+  post_build:
+    commands:
+      - echo "=== Post-Build Phase ==="
+      - docker push $BACKEND_REPO_URI:$BUILD_TAG
+      - docker push $BACKEND_REPO_URI:latest
+      - docker push $FRONTEND_REPO_URI:$BUILD_TAG
+      - docker push $FRONTEND_REPO_URI:latest
+
+      - echo "=== Updating GitOps Manifests ==="
+      - GITHUB_TOKEN=$(aws secretsmanager get-secret-value --secret-id $GITHUB_TOKEN_SECRET --query SecretString --output text)
+      - cd /tmp
+      - rm -rf gitops-repo
+      - git clone https://x-access-token:${GITHUB_TOKEN}@github.com/${GITOPS_REPO}.git gitops-repo
+      - cd gitops-repo
+      - git checkout $GITOPS_BRANCH
+
+      - sed -i "s|image: .*${BACKEND_IMAGE_NAME}:.*|image: ${BACKEND_REPO_URI}:${BUILD_TAG}|g" k8s/manifests/backend/deployment.yaml
+      - sed -i "s|image: .*${FRONTEND_IMAGE_NAME}:.*|image: ${FRONTEND_REPO_URI}:${BUILD_TAG}|g" k8s/manifests/frontend/deployment.yaml
+
+      - git config user.name "CodePipeline CI"
+      - git config user.email "codepipeline@aws.local"
+      - git add .
+      - git diff --cached --quiet || git commit -m "ci: update GCR image tags to $BUILD_TAG [skip ci]"
+      - git push origin $GITOPS_BRANCH

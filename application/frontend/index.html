@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SRE Observability Lab</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            background: #1e1e2e;
+            color: #cdd6f4;
+            text-align: center;
+            padding: 40px;
+        }
+        .control-panel {
+            background: #313244;
+            padding: 20px;
+            border-radius: 8px;
+            max-width: 600px;
+            margin: 0 auto 30px auto;
+        }
+        .btn {
+            padding: 12px 24px;
+            font-size: 14px;
+            margin: 8px;
+            border: none;
+            cursor: pointer;
+            border-radius: 6px;
+            font-weight: bold;
+        }
+        .btn:hover {
+            opacity: 0.9;
+        }
+        .btn-200 { background: #a6e3a1; color: #11111b; }
+        .btn-400 { background: #f9e2af; color: #11111b; }
+        .btn-403 { background: #fab387; color: #11111b; }
+        .btn-500 { background: #f38ba8; color: #11111b; }
+        .btn-503 { background: #eba0ac; color: #11111b; }
+        #logs {
+            background: #11111b;
+            width: 65%;
+            margin: 20px auto;
+            padding: 15px;
+            border-radius: 6px;
+            min-height: 150px;
+            text-align: left;
+            font-family: monospace;
+            overflow-y: auto;
+            max-height: 300px;
+        }
+        .log-line {
+            margin: 5px 0;
+            border-bottom: 1px solid #1e1e2e;
+            padding-bottom: 5px;
+        }
+        .status-200 { color: #a6e3a1; }
+        .status-4xx { color: #f9e2af; }
+        .status-5xx { color: #f38ba8; }
+    </style>
+</head>
+<body>
+    <h1>Microservice Observability Sandbox</h1>
+    <p>
+        Select a specific HTTP status code injection to trigger downstream
+        telemetry changes.
+    </p>
+
+    <div class="control-panel">
+        <h3>Inject Target Response</h3>
+        <button class="btn btn-200" onclick="triggerStatus(200)">Inject 200 OK</button>
+        <button class="btn btn-400" onclick="triggerStatus(400)">Inject 400 Bad Request</button>
+        <button class="btn btn-403" onclick="triggerStatus(403)">Inject 403 Forbidden</button>
+        <button class="btn btn-500" onclick="triggerStatus(500)">Inject 500 Internal Error</button>
+        <button class="btn btn-503" onclick="triggerStatus(503)">Inject 503 Service Unavailable</button>
+    </div>
+
+    <h3>Real-Time Telemetry Stream</h3>
+    <div id="logs">
+        <div class="log-line">System initialized. Awaiting user interaction...</div>
+    </div>
+
+    <script>
+        async function triggerStatus(code) {
+            const logsContainer = document.getElementById('logs');
+            const entry = document.createElement('div');
+            const timestamp = new Date().toISOString();
+
+            let statusClass = 'status-200';
+            if (code >= 500) statusClass = 'status-5xx';
+            else if (code >= 400) statusClass = 'status-4xx';
+
+            entry.className = `log-line ${statusClass}`;
+
+            try {
+                const response = await fetch(`/api/status/${code}`);
+                const data = await response.json();
+                entry.textContent = `[${timestamp}] HTTP ${response.status} -> ${data.message || data.error}`;
+            } catch (err) {
+                entry.className = 'log-line status-5xx';
+                entry.textContent = `[${timestamp}] NETWORK ERROR -> ${err.message}`;
+            }
+
+            logsContainer.prepend(entry);
+        }
+    </script>
+</body>
+</html>

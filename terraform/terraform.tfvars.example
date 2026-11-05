@@ -1,0 +1,8 @@
+aws_region               = "ap-south-1"
+project_name             = "observability"
+environment              = "sandbox"
+cluster_name             = "observability-eks"
+create_eks_via_terraform = false
+enable_codepipeline      = false
+gcr_host                 = "gcr.io"
+gcp_project_id           = "your-gcp-project-id"
