@@ -1,0 +1,286 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Description: >
+  EKS cluster, managed node group, EKS add-ons and cluster access
+  for the observability platform.
+
+Parameters:
+
+  ClusterName:
+    Type: String
+    Default: observability-eks
+
+  KubernetesVersion:
+    Type: String
+    Default: '1.36'
+    AllowedValues:
+      - '1.34'
+      - '1.35'
+      - '1.36'
+
+  ClusterRoleArn:
+    Type: String
+    Description: IAM role ARN used by the EKS control plane.
+
+  NodeRoleArn:
+    Type: String
+    Description: IAM role ARN used by the EKS managed node group.
+
+  ClusterSecurityGroupId:
+    Type: AWS::EC2::SecurityGroup::Id
+    Description: Security group associated with the EKS control plane.
+
+  PublicSubnet1:
+    Type: AWS::EC2::Subnet::Id
+
+  PublicSubnet2:
+    Type: AWS::EC2::Subnet::Id
+
+  PrivateSubnet1:
+    Type: AWS::EC2::Subnet::Id
+
+  PrivateSubnet2:
+    Type: AWS::EC2::Subnet::Id
+
+  KubernetesApiPublicCidr:
+    Type: String
+    Default: 49.36.245.179/32
+    Description: >
+      CIDR allowed to access the public EKS Kubernetes API endpoint.
+      Restrict this to your office/VPN IP in production.
+
+  ClusterAdminRoleArn:
+    Type: String
+    Description: >
+      IAM role that should receive EKS cluster-admin access.
+
+  NodeInstanceType:
+    Type: String
+    Default: m7i-flex.large
+
+  NodeMinSize:
+    Type: Number
+    Default: 2
+
+  NodeDesiredSize:
+    Type: Number
+    Default: 2
+
+  NodeMaxSize:
+    Type: Number
+    Default: 3
+
+Resources:
+
+  # ============================================================
+  # EKS CLUSTER
+  # ============================================================
+
+  EKSCluster:
+    Type: AWS::EKS::Cluster
+
+    Properties:
+      Name: !Ref ClusterName
+
+      Version: !Ref KubernetesVersion
+
+      RoleArn: !Ref ClusterRoleArn
+
+      AccessConfig:
+        AuthenticationMode: API
+        BootstrapClusterCreatorAdminPermissions: true
+
+      ResourcesVpcConfig:
+        SubnetIds:
+          - !Ref PublicSubnet1
+          - !Ref PublicSubnet2
+          - !Ref PrivateSubnet1
+          - !Ref PrivateSubnet2
+
+        SecurityGroupIds:
+          - !Ref ClusterSecurityGroupId
+
+        EndpointPublicAccess: true
+        EndpointPrivateAccess: true
+
+        PublicAccessCidrs:
+          - !Ref KubernetesApiPublicCidr
+
+      KubernetesNetworkConfig:
+        IpFamily: ipv4
+        ServiceIpv4Cidr: 172.20.0.0/16
+
+      Logging:
+        ClusterLogging:
+          EnabledTypes:
+            - Type: api
+            - Type: audit
+            - Type: authenticator
+            - Type: controllerManager
+            - Type: scheduler
+
+      DeletionProtection: false
+
+      Tags:
+        - Key: Name
+          Value: !Ref ClusterName
+        - Key: Environment
+          Value: sandbox
+        - Key: ManagedBy
+          Value: cloudformation
+
+
+  # ============================================================
+  # EKS ACCESS ENTRY
+  # ============================================================
+
+  ClusterAdminAccessEntry:
+    Type: AWS::EKS::AccessEntry
+
+    Properties:
+      ClusterName: !Ref EKSCluster
+
+      PrincipalArn: !Ref ClusterAdminRoleArn
+
+      Type: STANDARD
+
+      AccessPolicies:
+        - PolicyArn: arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy
+
+          AccessScope:
+            Type: cluster
+
+
+  # ============================================================
+  # MANAGED NODE GROUP
+  # ============================================================
+
+  EKSNodegroup:
+    Type: AWS::EKS::Nodegroup
+
+    Properties:
+      ClusterName: !Ref EKSCluster
+
+      NodegroupName: observability-node-group
+
+      NodeRole: !Ref NodeRoleArn
+
+      AmiType: AL2023_x86_64_STANDARD
+
+      CapacityType: ON_DEMAND
+
+      InstanceTypes:
+        - !Ref NodeInstanceType
+
+      DiskSize: 30
+
+      Subnets:
+        - !Ref PrivateSubnet1
+        - !Ref PrivateSubnet2
+
+      ScalingConfig:
+        MinSize: !Ref NodeMinSize
+        DesiredSize: !Ref NodeDesiredSize
+        MaxSize: !Ref NodeMaxSize
+
+      UpdateConfig:
+        MaxUnavailable: 1
+
+      NodeRepairConfig:
+        Enabled: true
+
+      Labels:
+        workload: general
+
+      Tags:
+        Name: observability-eks-node
+        Environment: sandbox
+        ManagedBy: cloudformation
+
+
+  # ============================================================
+  # VPC CNI
+  # ============================================================
+
+  VPCCNIAddon:
+    Type: AWS::EKS::Addon
+
+    Properties:
+      ClusterName: !Ref EKSCluster
+      AddonName: vpc-cni
+      ResolveConflicts: OVERWRITE
+
+
+  # ============================================================
+  # COREDNS
+  # ============================================================
+
+  CoreDNSAddon:
+    Type: AWS::EKS::Addon
+
+    Properties:
+      ClusterName: !Ref EKSCluster
+      AddonName: coredns
+      ResolveConflicts: OVERWRITE
+
+
+  # ============================================================
+  # KUBE PROXY
+  # ============================================================
+
+  KubeProxyAddon:
+    Type: AWS::EKS::Addon
+
+    Properties:
+      ClusterName: !Ref EKSCluster
+      AddonName: kube-proxy
+      ResolveConflicts: OVERWRITE
+
+
+  # ============================================================
+  # POD IDENTITY
+  # ============================================================
+
+  PodIdentityAgentAddon:
+    Type: AWS::EKS::Addon
+
+    Properties:
+      ClusterName: !Ref EKSCluster
+      AddonName: eks-pod-identity-agent
+      ResolveConflicts: OVERWRITE
+
+
+  # ============================================================
+  # NODE MONITORING
+  # ============================================================
+
+  NodeMonitoringAgentAddon:
+    Type: AWS::EKS::Addon
+
+    Properties:
+      ClusterName: !Ref EKSCluster
+      AddonName: eks-node-monitoring-agent
+      ResolveConflicts: OVERWRITE
+
+
+Outputs:
+
+  ClusterName:
+    Description: EKS cluster name
+    Value: !Ref EKSCluster
+
+  ClusterArn:
+    Description: EKS cluster ARN
+    Value: !GetAtt EKSCluster.Arn
+
+  ClusterEndpoint:
+    Description: EKS Kubernetes API endpoint
+    Value: !GetAtt EKSCluster.Endpoint
+
+  ClusterSecurityGroupId:
+    Description: EKS cluster security group
+    Value: !GetAtt EKSCluster.ClusterSecurityGroupId
+
+  NodegroupName:
+    Description: Managed node group name
+    Value: !Ref EKSNodegroup

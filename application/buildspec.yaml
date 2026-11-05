@@ -1,0 +1,70 @@
+version: 0.2
+
+phases:
+  pre_build:
+    commands:
+      - echo "=== Pre-Build Phase ==="
+      - echo "Logging in to Amazon ECR..."
+      - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
+      - COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
+      - BUILD_TAG="prod-${CODEBUILD_BUILD_NUMBER}-${COMMIT_HASH}"
+      - echo "Build Tag: $BUILD_TAG"
+      - echo "Fetching GitHub token from Secrets Manager..."
+      - GITHUB_TOKEN=$(aws secretsmanager get-secret-value --secret-id $GITHUB_TOKEN_SECRET --query SecretString --output text | jq -r '.token')
+      - echo "GitHub token retrieved successfully"
+
+  build:
+    commands:
+      - echo "=== Build Phase ==="
+      # ─── Build Backend Image ───────────────────────────
+      - echo "Building Backend Docker image..."
+      - docker build -t $ECR_REPOSITORY_URI:backend-$BUILD_TAG ./backend
+      - docker tag $ECR_REPOSITORY_URI:backend-$BUILD_TAG $ECR_REPOSITORY_URI:backend-latest
+
+      # ─── Build Frontend Image ──────────────────────────
+      - echo "Building Frontend Docker image..."
+      - docker build -t $ECR_REPOSITORY_URI:frontend-$BUILD_TAG ./frontend
+      - docker tag $ECR_REPOSITORY_URI:frontend-$BUILD_TAG $ECR_REPOSITORY_URI:frontend-latest
+
+  post_build:
+    commands:
+      - echo "=== Post-Build Phase ==="
+      # ─── Push Images to ECR ────────────────────────────
+      - echo "Pushing Backend image..."
+      - docker push $ECR_REPOSITORY_URI:backend-$BUILD_TAG
+      - docker push $ECR_REPOSITORY_URI:backend-latest
+
+      - echo "Pushing Frontend image..."
+      - docker push $ECR_REPOSITORY_URI:frontend-$BUILD_TAG
+      - docker push $ECR_REPOSITORY_URI:frontend-latest
+
+      # ─── Update GitOps Repository ──────────────────────
+      - echo "=== Updating GitOps Manifests ==="
+      - cd /tmp
+      - rm -rf gitops-repo
+      - git clone https://$GITHUB_TOKEN@github.com/$GITOPS_REPO.git gitops-repo
+      - cd gitops-repo
+      - git checkout $GITOPS_BRANCH
+
+      # ─── Update image tags in manifests ────────────────
+      - echo "Updating backend image tag to: backend-$BUILD_TAG"
+      - sed -i "s|image: .*observability-app:backend-.*|image: $ECR_REPOSITORY_URI:backend-$BUILD_TAG|g" apps/backend-deployment.yaml || true
+
+      - echo "Updating frontend image tag to: frontend-$BUILD_TAG"
+      - sed -i "s|image: .*observability-app:frontend-.*|image: $ECR_REPOSITORY_URI:frontend-$BUILD_TAG|g" apps/frontend-deployment.yaml || true
+
+      # ─── Commit and Push ───────────────────────────────
+      - git config user.name "CodePipeline CI"
+      - git config user.email "codepipeline@aws.local"
+      - git add .
+      - git diff --cached --quiet || git commit -m "ci: update image tags to $BUILD_TAG [skip ci]"
+      - git push origin $GITOPS_BRANCH
+      - echo "=== GitOps repo updated. ArgoCD will sync automatically. ==="
+
+      # ─── Summary ───────────────────────────────────────
+      - echo "=========================================="
+      - echo "BUILD COMPLETE"
+      - echo "Backend Image:  $ECR_REPOSITORY_URI:backend-$BUILD_TAG"
+      - echo "Frontend Image: $ECR_REPOSITORY_URI:frontend-$BUILD_TAG"
+      - echo "GitOps Branch:  $GITOPS_BRANCH"
+      - echo "=========================================="
