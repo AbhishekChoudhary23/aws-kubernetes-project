@@ -54,8 +54,7 @@ resource "aws_iam_role_policy_attachment" "eks_cni_policy" {
   role       = aws_iam_role.eks_nodes.name
 }
 
-# Kept on worker nodes because AWS EKS system add-ons (vpc-cni, kube-proxy, coredns)
-# are pulled from AWS-managed ECR repositories even when workload images live in GCR.
+# Allows EKS worker nodes to pull both EKS system add-on images and application images from Amazon ECR
 resource "aws_iam_role_policy_attachment" "ecr_read_only" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
   role       = aws_iam_role.eks_nodes.name
@@ -105,6 +104,26 @@ resource "aws_iam_role_policy" "codebuild" {
           "s3:PutObject"
         ]
         Resource = "arn:aws:s3:::${var.project_name}-${var.environment}-pipeline-artifacts/*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "ecr:GetAuthorizationToken"
+        ]
+        Resource = "*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:BatchGetImage",
+          "ecr:InitiateLayerUpload",
+          "ecr:UploadLayerPart",
+          "ecr:CompleteLayerUpload",
+          "ecr:PutImage"
+        ]
+        Resource = "arn:aws:ecr:${var.aws_region}:${var.account_id}:repository/${var.project_name}-*"
       },
       {
         Effect = "Allow"

@@ -27,6 +27,15 @@ module "vpc" {
   cluster_name         = var.cluster_name
 }
 
+# ─── ECR ──────────────────────────────────────────────────────────────────────
+module "ecr" {
+  source = "./modules/ecr"
+
+  project_name = var.project_name
+  environment  = var.environment
+  repositories = var.ecr_repositories
+}
+
 # ─── IAM ──────────────────────────────────────────────────────────────────────
 module "iam" {
   source = "./modules/iam"
@@ -56,7 +65,7 @@ module "eks" {
   eks_node_role_arn    = module.iam.eks_node_role_arn
 }
 
-# ─── CodePipeline (Optional CI/CD pushing to GitHub Container Registry) ───────
+# ─── CodePipeline (Optional CI/CD pushing to Amazon ECR) ──────────────────────
 module "codepipeline" {
   count  = var.enable_codepipeline ? 1 : 0
   source = "./modules/codepipeline"
@@ -71,8 +80,8 @@ module "codepipeline" {
   gitops_repo             = var.gitops_repo
   gitops_branch           = var.gitops_branch
   codestar_connection_arn = var.codestar_connection_arn
-  ghcr_host               = var.ghcr_host
-  ghcr_owner              = lower(var.github_owner)
+  backend_repository_uri  = module.ecr.backend_repository_uri
+  frontend_repository_uri = module.ecr.frontend_repository_uri
   codebuild_role_arn      = module.iam.codebuild_role_arn
   codepipeline_role_arn   = module.iam.codepipeline_role_arn
 }

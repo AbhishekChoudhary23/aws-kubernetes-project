@@ -54,6 +54,25 @@ variable "single_nat_gateway" {
   default     = true
 }
 
+# ─── ECR ──────────────────────────────────────────────────────────────────────
+variable "ecr_repositories" {
+  description = "Map of ECR repositories to create"
+  type = map(object({
+    image_tag_mutability = string
+    scan_on_push         = bool
+  }))
+  default = {
+    backend = {
+      image_tag_mutability = "MUTABLE"
+      scan_on_push         = true
+    }
+    frontend = {
+      image_tag_mutability = "MUTABLE"
+      scan_on_push         = true
+    }
+  }
+}
+
 # ─── EKS ──────────────────────────────────────────────────────────────────────
 variable "create_eks_via_terraform" {
   description = "Set to true to provision EKS via Terraform, or false when provisioning EKS via CloudFormation"
@@ -95,21 +114,15 @@ variable "node_groups" {
   }
 }
 
-# ─── GHCR & CodePipeline ──────────────────────────────────────────────────────
+# ─── CodePipeline ─────────────────────────────────────────────────────────────
 variable "enable_codepipeline" {
-  description = "Enable AWS CodePipeline and CodeBuild for GHCR image builds"
+  description = "Enable AWS CodePipeline and CodeBuild for ECR image builds"
   type        = bool
   default     = false
 }
 
-variable "ghcr_host" {
-  description = "GitHub Container Registry hostname"
-  type        = string
-  default     = "ghcr.io"
-}
-
 variable "github_owner" {
-  description = "GitHub repository and GHCR namespace owner"
+  description = "GitHub repository owner"
   type        = string
   default     = "AbhishekChoudhary23"
 }

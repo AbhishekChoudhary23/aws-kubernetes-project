@@ -33,16 +33,15 @@ resource "aws_s3_bucket_public_access_block" "pipeline_artifacts" {
   restrict_public_buckets = true
 }
 
-# Used for both GHCR authentication (write:packages) and GitOps repo push (repo)
 resource "aws_secretsmanager_secret" "github_token" {
   name                    = "${var.project_name}-${var.environment}-github-token"
-  description             = "GitHub Personal Access Token with write:packages, read:packages, and repo scopes"
+  description             = "GitHub Personal Access Token for GitOps repository updates"
   recovery_window_in_days = 0
 }
 
 resource "aws_codebuild_project" "app" {
   name          = "${var.project_name}-${var.environment}-build"
-  description   = "Builds Docker images, pushes to GHCR (ghcr.io), and updates GitOps repo"
+  description   = "Builds Docker images, pushes to Amazon ECR, and updates GitOps repo"
   service_role  = var.codebuild_role_arn
   build_timeout = 30
 
@@ -58,13 +57,23 @@ resource "aws_codebuild_project" "app" {
     privileged_mode             = true
 
     environment_variable {
-      name  = "GHCR_HOST"
-      value = var.ghcr_host
+      name  = "AWS_DEFAULT_REGION"
+      value = var.aws_region
     }
 
     environment_variable {
-      name  = "GHCR_OWNER"
-      value = var.ghcr_owner
+      name  = "AWS_ACCOUNT_ID"
+      value = var.account_id
+    }
+
+    environment_variable {
+      name  = "BACKEND_REPO_URI"
+      value = var.backend_repository_uri
+    }
+
+    environment_variable {
+      name  = "FRONTEND_REPO_URI"
+      value = var.frontend_repository_uri
     }
 
     environment_variable {
@@ -121,7 +130,7 @@ resource "aws_codepipeline" "app" {
     name = "Build"
 
     action {
-      name             = "BuildAndPushGHCR"
+      name             = "BuildAndPushECR"
       category         = "Build"
       owner            = "AWS"
       provider         = "CodeBuild"

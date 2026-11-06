@@ -23,13 +23,11 @@ spec:
         app: frontend
         tier: web
     spec:
-      imagePullSecrets:
-        - name: ghcr-pull-secret
       terminationGracePeriodSeconds: 30
       containers:
         - name: frontend
-          image: ghcr.io/abhishekchoudhary23/observability-frontend:latest
-          imagePullPolicy: IfNotPresent
+          image: 988067790077.dkr.ecr.ap-south-1.amazonaws.com/observability-frontend:latest
+          imagePullPolicy: Always
           ports:
             - name: http
               containerPort: 80

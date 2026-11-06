@@ -2,10 +2,10 @@ version: 0.2
 
 env:
   variables:
-    GHCR_HOST: "ghcr.io"
-    GHCR_OWNER: "abhishekchoudhary23"
-    BACKEND_IMAGE_NAME: "observability-backend"
-    FRONTEND_IMAGE_NAME: "observability-frontend"
+    AWS_DEFAULT_REGION: "ap-south-1"
+    AWS_ACCOUNT_ID: "988067790077"
+    BACKEND_REPO_URI: "988067790077.dkr.ecr.ap-south-1.amazonaws.com/observability-backend"
+    FRONTEND_REPO_URI: "988067790077.dkr.ecr.ap-south-1.amazonaws.com/observability-frontend"
 
 phases:
   install:
@@ -13,16 +13,13 @@ phases:
       nodejs: 18
     commands:
       - echo "=== Install Phase ==="
-      - echo "Authenticating with GitHub Container Registry (ghcr.io)..."
-      - GITHUB_TOKEN=$(aws secretsmanager get-secret-value --secret-id $GITHUB_TOKEN_SECRET --query SecretString --output text)
-      - echo "$GITHUB_TOKEN" | docker login $GHCR_HOST -u $GHCR_OWNER --password-stdin
+      - aws --version
+      - echo "Logging in to Amazon ECR..."
+      - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
 
   pre_build:
     commands:
       - echo "=== Pre-Build Phase ==="
-      - LOWER_OWNER=$(echo "$GHCR_OWNER" | tr '[:upper:]' '[:lower:]')
-      - BACKEND_REPO_URI="$GHCR_HOST/$LOWER_OWNER/$BACKEND_IMAGE_NAME"
-      - FRONTEND_REPO_URI="$GHCR_HOST/$LOWER_OWNER/$FRONTEND_IMAGE_NAME"
       - BUILD_TAG="${CODEBUILD_RESOLVED_SOURCE_VERSION:0:7}-${CODEBUILD_BUILD_NUMBER:-1}"
       - echo "Building image tag: $BUILD_TAG"
 
@@ -40,23 +37,28 @@ phases:
   post_build:
     commands:
       - echo "=== Post-Build Phase ==="
+      - echo "Pushing Backend image to Amazon ECR..."
       - docker push $BACKEND_REPO_URI:$BUILD_TAG
       - docker push $BACKEND_REPO_URI:latest
+
+      - echo "Pushing Frontend image to Amazon ECR..."
       - docker push $FRONTEND_REPO_URI:$BUILD_TAG
       - docker push $FRONTEND_REPO_URI:latest
 
       - echo "=== Updating GitOps Manifests ==="
+      - GITHUB_TOKEN=$(aws secretsmanager get-secret-value --secret-id $GITHUB_TOKEN_SECRET --query SecretString --output text)
       - cd /tmp
       - rm -rf gitops-repo
       - git clone https://x-access-token:${GITHUB_TOKEN}@github.com/${GITOPS_REPO}.git gitops-repo
       - cd gitops-repo
       - git checkout $GITOPS_BRANCH
 
-      - sed -i "s|image: .*${BACKEND_IMAGE_NAME}:.*|image: ${BACKEND_REPO_URI}:${BUILD_TAG}|g" k8s/manifests/backend/deployment.yaml
-      - sed -i "s|image: .*${FRONTEND_IMAGE_NAME}:.*|image: ${FRONTEND_REPO_URI}:${BUILD_TAG}|g" k8s/manifests/frontend/deployment.yaml
+      - sed -i "s|image: .*observability-backend:.*|image: ${BACKEND_REPO_URI}:${BUILD_TAG}|g" k8s/manifests/backend/deployment.yaml
+      - sed -i "s|image: .*observability-frontend:.*|image: ${FRONTEND_REPO_URI}:${BUILD_TAG}|g" k8s/manifests/frontend/deployment.yaml
 
       - git config user.name "CodePipeline CI"
       - git config user.email "codepipeline@aws.local"
       - git add .
-      - git diff --cached --quiet || git commit -m "ci: update GHCR image tags to $BUILD_TAG [skip ci]"
+      - git diff --cached --quiet || git commit -m "ci: update ECR image tags to $BUILD_TAG [skip ci]"
       - git push origin $GITOPS_BRANCH
+      - echo "=== GitOps repo updated. ArgoCD will sync automatically. ==="

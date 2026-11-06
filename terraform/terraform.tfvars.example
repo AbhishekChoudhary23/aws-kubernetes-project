@@ -4,5 +4,3 @@ environment              = "sandbox"
 cluster_name             = "observability-eks"
 create_eks_via_terraform = false
 enable_codepipeline      = false
-ghcr_host                = "ghcr.io"
-github_owner             = "AbhishekChoudhary23"

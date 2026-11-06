@@ -23,6 +23,16 @@ output "eks_node_role_arn" {
   value       = module.iam.eks_node_role_arn
 }
 
+output "ecr_backend_repository_uri" {
+  description = "ECR backend repository URI"
+  value       = module.ecr.backend_repository_uri
+}
+
+output "ecr_frontend_repository_uri" {
+  description = "ECR frontend repository URI"
+  value       = module.ecr.frontend_repository_uri
+}
+
 output "kubeconfig_command" {
   description = "Command to configure local kubeconfig"
   value       = "aws eks update-kubeconfig --region ${var.aws_region} --name ${var.cluster_name}"
