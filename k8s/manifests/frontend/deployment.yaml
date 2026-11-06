@@ -24,11 +24,11 @@ spec:
         tier: web
     spec:
       imagePullSecrets:
-        - name: gcr-json-key
+        - name: ghcr-pull-secret
       terminationGracePeriodSeconds: 30
       containers:
         - name: frontend
-          image: gcr.io/my-gcp-project/observability-frontend:v1.0.0
+          image: ghcr.io/abhishekchoudhary23/observability-frontend:latest
           imagePullPolicy: IfNotPresent
           ports:
             - name: http

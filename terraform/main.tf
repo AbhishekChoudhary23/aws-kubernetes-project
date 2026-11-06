@@ -31,11 +31,11 @@ module "vpc" {
 module "iam" {
   source = "./modules/iam"
 
-  project_name       = var.project_name
-  environment        = var.environment
-  cluster_name       = var.cluster_name
-  aws_region         = var.aws_region
-  account_id         = data.aws_caller_identity.current.account_id
+  project_name        = var.project_name
+  environment         = var.environment
+  cluster_name        = var.cluster_name
+  aws_region          = var.aws_region
+  account_id          = data.aws_caller_identity.current.account_id
   enable_codepipeline = var.enable_codepipeline
 }
 
@@ -56,7 +56,7 @@ module "eks" {
   eks_node_role_arn    = module.iam.eks_node_role_arn
 }
 
-# ─── CodePipeline (Optional CI/CD pushing to GCR) ─────────────────────────────
+# ─── CodePipeline (Optional CI/CD pushing to GitHub Container Registry) ───────
 module "codepipeline" {
   count  = var.enable_codepipeline ? 1 : 0
   source = "./modules/codepipeline"
@@ -71,8 +71,8 @@ module "codepipeline" {
   gitops_repo             = var.gitops_repo
   gitops_branch           = var.gitops_branch
   codestar_connection_arn = var.codestar_connection_arn
-  gcr_host                = var.gcr_host
-  gcp_project_id          = var.gcp_project_id
+  ghcr_host               = var.ghcr_host
+  ghcr_owner              = lower(var.github_owner)
   codebuild_role_arn      = module.iam.codebuild_role_arn
   codepipeline_role_arn   = module.iam.codepipeline_role_arn
 }

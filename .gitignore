@@ -36,8 +36,7 @@ pnpm-debug.log*
 *.key
 *.p12
 *.pfx
-gcr-key.json
-*-sa-key.json
+.ghcr-token
 
 # ==========================================
 # Operating System & IDE

@@ -33,19 +33,16 @@ resource "aws_s3_bucket_public_access_block" "pipeline_artifacts" {
   restrict_public_buckets = true
 }
 
+# Used for both GHCR authentication (write:packages) and GitOps repo push (repo)
 resource "aws_secretsmanager_secret" "github_token" {
   name                    = "${var.project_name}-${var.environment}-github-token"
-  recovery_window_in_days = 0
-}
-
-resource "aws_secretsmanager_secret" "gcr_service_account_key" {
-  name                    = "${var.project_name}-${var.environment}-gcr-sa-key"
+  description             = "GitHub Personal Access Token with write:packages, read:packages, and repo scopes"
   recovery_window_in_days = 0
 }
 
 resource "aws_codebuild_project" "app" {
   name          = "${var.project_name}-${var.environment}-build"
-  description   = "Builds Docker images, pushes to GCR, and updates GitOps repo"
+  description   = "Builds Docker images, pushes to GHCR (ghcr.io), and updates GitOps repo"
   service_role  = var.codebuild_role_arn
   build_timeout = 30
 
@@ -61,13 +58,13 @@ resource "aws_codebuild_project" "app" {
     privileged_mode             = true
 
     environment_variable {
-      name  = "GCR_HOST"
-      value = var.gcr_host
+      name  = "GHCR_HOST"
+      value = var.ghcr_host
     }
 
     environment_variable {
-      name  = "GCP_PROJECT_ID"
-      value = var.gcp_project_id
+      name  = "GHCR_OWNER"
+      value = var.ghcr_owner
     }
 
     environment_variable {
@@ -83,11 +80,6 @@ resource "aws_codebuild_project" "app" {
     environment_variable {
       name  = "GITHUB_TOKEN_SECRET"
       value = aws_secretsmanager_secret.github_token.name
-    }
-
-    environment_variable {
-      name  = "GCR_SERVICE_ACCOUNT_SECRET"
-      value = aws_secretsmanager_secret.gcr_service_account_key.name
     }
   }
 
@@ -129,7 +121,7 @@ resource "aws_codepipeline" "app" {
     name = "Build"
 
     action {
-      name             = "BuildAndPushGCR"
+      name             = "BuildAndPushGHCR"
       category         = "Build"
       owner            = "AWS"
       provider         = "CodeBuild"

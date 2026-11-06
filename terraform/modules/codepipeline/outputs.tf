@@ -13,7 +13,3 @@ output "artifacts_bucket" {
 output "github_token_secret_name" {
   value = aws_secretsmanager_secret.github_token.name
 }
-
-output "gcr_service_account_secret_name" {
-  value = aws_secretsmanager_secret.gcr_service_account_key.name
-}

@@ -28,14 +28,14 @@ spec:
         prometheus.io/path: "/metrics"
     spec:
       imagePullSecrets:
-        - name: gcr-json-key
+        - name: ghcr-pull-secret
       terminationGracePeriodSeconds: 30
       securityContext:
         runAsNonRoot: true
         runAsUser: 1000
       containers:
         - name: backend
-          image: gcr.io/my-gcp-project/observability-backend:v1.0.0
+          image: ghcr.io/abhishekchoudhary23/observability-backend:latest
           imagePullPolicy: IfNotPresent
           ports:
             - name: http

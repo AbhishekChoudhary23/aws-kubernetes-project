@@ -95,27 +95,21 @@ variable "node_groups" {
   }
 }
 
-# ─── GCR & CodePipeline ───────────────────────────────────────────────────────
+# ─── GHCR & CodePipeline ──────────────────────────────────────────────────────
 variable "enable_codepipeline" {
-  description = "Enable AWS CodePipeline and CodeBuild for GCR image builds"
+  description = "Enable AWS CodePipeline and CodeBuild for GHCR image builds"
   type        = bool
   default     = false
 }
 
-variable "gcr_host" {
-  description = "Google Container Registry hostname (e.g., gcr.io, us.gcr.io, asia.gcr.io)"
+variable "ghcr_host" {
+  description = "GitHub Container Registry hostname"
   type        = string
-  default     = "gcr.io"
-}
-
-variable "gcp_project_id" {
-  description = "Google Cloud Project ID hosting the GCR registry"
-  type        = string
-  default     = "my-gcp-project"
+  default     = "ghcr.io"
 }
 
 variable "github_owner" {
-  description = "GitHub repository owner"
+  description = "GitHub repository and GHCR namespace owner"
   type        = string
   default     = "AbhishekChoudhary23"
 }
