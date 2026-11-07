@@ -225,6 +225,111 @@ data:
         options:
           path: /var/lib/grafana/dashboards
 ---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-sre-dashboard
+  namespace: monitoring
+  labels:
+    app: grafana
+data:
+  sre-observability.json: |
+    {
+      "annotations": { "list": [] },
+      "editable": true,
+      "fiscalYearStartMonth": 0,
+      "graphTooltip": 0,
+      "id": null,
+      "links": [],
+      "panels": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus-ds" },
+          "fieldConfig": {
+            "defaults": { "color": { "mode": "palette-classic" }, "unit": "short" },
+            "overrides": []
+          },
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+          "id": 1,
+          "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+          "targets": [
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus-ds" },
+              "expr": "sum by (status) (http_requests_total)",
+              "legendFormat": "HTTP {{status}}",
+              "refId": "A"
+            }
+          ],
+          "title": "Total HTTP Requests by Status Code",
+          "type": "timeseries"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus-ds" },
+          "fieldConfig": {
+            "defaults": { "color": { "mode": "palette-classic" }, "unit": "reqps" },
+            "overrides": []
+          },
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+          "id": 2,
+          "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+          "targets": [
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus-ds" },
+              "expr": "sum by (status) (rate(http_requests_total[1m]))",
+              "legendFormat": "HTTP {{status}} req/s",
+              "refId": "A"
+            }
+          ],
+          "title": "Live HTTP Request Rate (per second)",
+          "type": "timeseries"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus-ds" },
+          "fieldConfig": {
+            "defaults": { "color": { "fixedColor": "red", "mode": "fixed" }, "unit": "reqps" },
+            "overrides": []
+          },
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+          "id": 3,
+          "targets": [
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus-ds" },
+              "expr": "sum(rate(http_requests_total{status=~\"5..\"}[1m]))",
+              "legendFormat": "5xx Server Errors/s",
+              "refId": "A"
+            }
+          ],
+          "title": "5xx Server Error Rate (Simulated Outages)",
+          "type": "timeseries"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus-ds" },
+          "fieldConfig": {
+            "defaults": { "color": { "mode": "palette-classic" }, "unit": "bytes" },
+            "overrides": []
+          },
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+          "id": 4,
+          "targets": [
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus-ds" },
+              "expr": "process_resident_memory_bytes{service=\"backend\"}",
+              "legendFormat": "Backend Memory ({{instance}})",
+              "refId": "A"
+            }
+          ],
+          "title": "Backend Node.js Memory Usage",
+          "type": "timeseries"
+        }
+      ],
+      "refresh": "5s",
+      "schemaVersion": 39,
+      "tags": ["sre", "observability"],
+      "time": { "from": "now-15m", "to": "now" },
+      "title": "SRE Microservice Observability Sandbox",
+      "uid": "sre-observability-sandbox",
+      "version": 1
+    }
+---
 # ─── 5. GRAFANA DEPLOYMENT & SERVICE ─────────────────────────────────────────
 apiVersion: apps/v1
 kind: Deployment
