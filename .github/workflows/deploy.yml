@@ -4,8 +4,6 @@ on:
   push:
     branches:
       - aws-prod
-      - master
-      - main
     paths:
       - 'application/**'
       - '.github/workflows/deploy.yml'
