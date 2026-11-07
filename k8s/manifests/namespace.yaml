@@ -4,3 +4,12 @@ metadata:
   name: observability
   labels:
     app.kubernetes.io/part-of: observability-sandbox
+    app.kubernetes.io/managed-by: argocd
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: monitoring
+  labels:
+    app.kubernetes.io/part-of: observability-sandbox
+    app.kubernetes.io/managed-by: argocd
