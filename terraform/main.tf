@@ -40,12 +40,11 @@ module "ecr" {
 module "iam" {
   source = "./modules/iam"
 
-  project_name        = var.project_name
-  environment         = var.environment
-  cluster_name        = var.cluster_name
-  aws_region          = var.aws_region
-  account_id          = data.aws_caller_identity.current.account_id
-  enable_codepipeline = var.enable_codepipeline
+  project_name = var.project_name
+  environment  = var.environment
+  cluster_name = var.cluster_name
+  aws_region   = var.aws_region
+  account_id   = data.aws_caller_identity.current.account_id
 }
 
 # ─── EKS (Optional via Terraform if not deploying via CloudFormation) ─────────
@@ -63,25 +62,4 @@ module "eks" {
   node_groups          = var.node_groups
   eks_cluster_role_arn = module.iam.eks_cluster_role_arn
   eks_node_role_arn    = module.iam.eks_node_role_arn
-}
-
-# ─── CodePipeline (Optional CI/CD pushing to Amazon ECR) ──────────────────────
-module "codepipeline" {
-  count  = var.enable_codepipeline ? 1 : 0
-  source = "./modules/codepipeline"
-
-  project_name            = var.project_name
-  environment             = var.environment
-  aws_region              = var.aws_region
-  account_id              = data.aws_caller_identity.current.account_id
-  github_owner            = var.github_owner
-  github_repo             = var.github_repo
-  github_branch           = var.github_branch
-  gitops_repo             = var.gitops_repo
-  gitops_branch           = var.gitops_branch
-  codestar_connection_arn = var.codestar_connection_arn
-  backend_repository_uri  = module.ecr.backend_repository_uri
-  frontend_repository_uri = module.ecr.frontend_repository_uri
-  codebuild_role_arn      = module.iam.codebuild_role_arn
-  codepipeline_role_arn   = module.iam.codepipeline_role_arn
 }

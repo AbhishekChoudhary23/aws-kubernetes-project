@@ -3,4 +3,3 @@ project_name             = "observability"
 environment              = "sandbox"
 cluster_name             = "observability-eks"
 create_eks_via_terraform = false
-enable_codepipeline      = false

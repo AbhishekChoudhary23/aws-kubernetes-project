@@ -8,9 +8,12 @@ kubectl create namespace argocd --dry-run=client -o yaml | kubectl apply -f -
 # Use --server-side --force-conflicts to bypass annotation size limits on large CRDs
 kubectl apply -n argocd --server-side --force-conflicts -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
 
-echo "Waiting for ArgoCD to be ready..."
+echo "Waiting for ArgoCD server to be ready..."
 kubectl wait --for=condition=available --timeout=300s deployment/argocd-server -n argocd
 
-echo "=== ArgoCD installed successfully ==="
+echo "Applying Single-Repo ArgoCD Application (k8s/argocd-application.yaml)..."
+kubectl apply -f k8s/argocd-application.yaml
+
+echo "=== ArgoCD installed and configured for Single-Repo GitOps ==="
 echo "Get initial admin password:"
 echo "  kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d; echo"
