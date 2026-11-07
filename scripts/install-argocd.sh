@@ -65,7 +65,7 @@ spec:
     path: k8s/manifests
     directory:
       recurse: true
-    exclude: 'monitoring/**'
+      exclude: 'monitoring/**'
   destination:
     server: https://kubernetes.default.svc
     namespace: observability
