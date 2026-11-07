@@ -13,7 +13,7 @@ Parameters:
 
   KubernetesVersion:
     Type: String
-    Default: '1.31'
+    Default: '1.36'
     AllowedValues:
       - '1.29'
       - '1.30'
